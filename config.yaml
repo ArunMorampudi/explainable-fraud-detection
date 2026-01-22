@@ -1,0 +1,29 @@
+experiment:
+  random_seed: 42
+
+data:
+  csv_path: data/raw/creditcard.csv
+  split_mode: time        # options: time, stratified
+  train_fraction: 0.70
+  val_fraction: 0.15
+
+thresholding:
+  mode: fpr_budget        # options: fpr_budget, fbeta
+  target_fpr: 0.01
+  beta: 2.0
+
+evaluation:
+  precision_at_k: [100, 500, 1000]
+  bootstrap_resamples: 1000
+  cv_splits: 5
+  cv_repeats: 3
+
+explainability:
+  enabled: true
+  max_explanations: 500
+  background_samples: 2000
+  top_k_attribution: 3
+
+system:
+  python_version: 3.10.9
+  os: windows

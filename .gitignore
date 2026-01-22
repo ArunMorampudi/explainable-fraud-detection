@@ -1,0 +1,43 @@
+# ===============================
+# Python artifacts
+# ===============================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# ===============================
+# Virtual environments
+# ===============================
+.venv/
+venv/
+env/
+
+# ===============================
+# OS / editor files
+# ===============================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# ===============================
+# Experiment outputs (regenerated)
+# ===============================
+results/
+artifacts/
+
+# ===============================
+# Data (public benchmark, auto-downloaded)
+# ===============================
+data/raw/creditcard.csv
+
+# ===============================
+# Logs
+# ===============================
+*.log
+
+# ===============================
+# Jupyter (if any later added)
+# ===============================
+.ipynb_checkpoints/
