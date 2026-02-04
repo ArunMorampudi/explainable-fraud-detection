@@ -10,8 +10,6 @@ __pycache__/
 # Virtual environments
 # ===============================
 .venv/
-venv/
-env/
 
 # ===============================
 # OS / editor files
@@ -24,7 +22,6 @@ Thumbs.db
 # ===============================
 # Experiment outputs (regenerated)
 # ===============================
-results/
 artifacts/
 
 # ===============================
