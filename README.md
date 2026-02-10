@@ -166,7 +166,7 @@ python main.py
 
 ### Configuration
 
-Edit `config.yaml` to customize the pipeline:
+The pipeline is configured via `config.yaml`, which specifies all experimental parameters:
 
 ```yaml
 experiment:
@@ -175,30 +175,32 @@ experiment:
 data:
   csv_path: data/raw/creditcard.csv  # Path to dataset
   split_mode: time                   # 'time' (temporal) or 'stratified' (random)
-  train_fraction: 0.70               # Training set fraction
-  val_fraction: 0.15                 # Validation set fraction (test = 1 - train - val)
+  train_fraction: 0.70               # Training set fraction (70%)
+  val_fraction: 0.15                 # Validation set fraction (15%; test = 15%)
 
 thresholding:
-  mode: fpr_budget                   # 'fpr_budget' or 'fbeta'
+  mode: fpr_budget                   # Fixed FPR budget approach
   target_fpr: 0.01                   # Target false-positive rate (1%)
-  beta: 2.0                          # Beta for F-beta metric (if mode='fbeta')
+  beta: 2.0                          # Beta parameter for F-beta metric (alternative mode)
 
 evaluation:
-  precision_at_k: [100, 500, 1000]   # Precision@k thresholds
-  bootstrap_resamples: 1000          # Number of stratified bootstrap resamples
+  precision_at_k: [100, 500, 1000]   # Evaluate precision at top-100, 500, 1000 predictions
+  bootstrap_resamples: 1000          # Number of stratified bootstrap resamples for CIs
   cv_splits: 5                       # K-fold cross-validation (K=5)
-  cv_repeats: 3                      # Number of CV repeats
+  cv_repeats: 3                      # Number of CV repeats (total: 15 runs)
 
 explainability:
-  enabled: true                      # Enable SHAP explanations
-  max_explanations: 500              # Max number of instances to explain
-  background_samples: 2000           # Background samples for SHAP
+  enabled: true                      # Enable SHAP explanation generation
+  max_explanations: 500              # Maximum number of instances to explain
+  background_samples: 2000           # Background samples for SHAP calculations
   top_k_attribution: 3               # Top-k features for local explanations
 
 system:
-  python_version: 3.10.9
-  os: windows
+  python_version: 3.10.9             # Python version used for experiments
+  os: windows                        # Operating system
 ```
+
+These default settings reproduce the experiments reported in the paper. The pipeline can be run as-is without modifications.
 
 ### Output
 
@@ -268,7 +270,6 @@ pip install pandas numpy scikit-learn xgboost shap matplotlib PyYAML kagglehub t
 
 - **Worldline & ML Group, ULB** (2016). *Credit Card Fraud Detection* [Dataset]. Kaggle.
   - URL: https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud
-  - Retrieved: February 2026
 
 - **Dal Pozzolo, A., Caelen, O., Johnson, R. A., & Bontempi, G.** (2015).
   - *Calibrating Probability with Undersampling for Unbalanced Classification*.
@@ -295,6 +296,3 @@ If you use this codebase in your research or work, please cite:
 ```
 
 ---
-
-**Last Updated**: February 2026  
-**Status**: Active repository for PeerJ CS submission
