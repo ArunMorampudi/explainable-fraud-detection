@@ -282,17 +282,4 @@ pip install pandas numpy scikit-learn xgboost shap matplotlib PyYAML kagglehub t
 
 This project is released under the **MIT License**. See the [LICENSE](LICENSE) file for details.
 
-### Citation
-
-If you use this codebase in your research or work, please cite:
-
-```bibtex
-@misc{explainablefrauddetection2026,
-  author = {Arun Morampudi},
-  title = {Explainable Fraud Detection Under Fixed FPR},
-  year = {2026},
-  url = {https://github.com/ArunMorampudi/explainable-fraud-detection}
-}
-```
-
 ---
