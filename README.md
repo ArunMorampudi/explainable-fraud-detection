@@ -1,4 +1,4 @@
-# Explainable Fraud Detection Under Fixed FPR
+# Explainable fraud detection under fixed false positive rate
 
 Reproducible experimental pipeline for **explainable fraud detection under extreme class imbalance**, with:
 - **fixed false-positive-rate (FPR) thresholding** (operationally meaningful alert budgets),
@@ -11,7 +11,7 @@ Repository: `explainable-fraud-detection` (branch: `main`).
 
 ## Title
 
-**Explainable Fraud Detection Under Fixed FPR**
+**Explainable fraud detection under fixed false positive rate**
 
 ---
 
