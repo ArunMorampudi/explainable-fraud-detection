@@ -11,7 +11,7 @@ Repository: `explainable-fraud-detection` (branch: `main`).
 
 ## Title
 
-**Explainable Fraud Detection Under Fixed FPR (PeerJ CS Reproducibility Package)**
+**Explainable Fraud Detection Under Fixed FPR**
 
 ---
 
@@ -287,8 +287,8 @@ If you use this codebase in your research or work, please cite:
 
 ```bibtex
 @misc{explainablefrauddetection2026,
-  author = {Your Name},
-  title = {Explainable Fraud Detection Under Fixed FPR: A Reproducible Pipeline},
+  author = {Arun Morampudi},
+  title = {Explainable Fraud Detection Under Fixed FPR},
   year = {2026},
   url = {https://github.com/ArunMorampudi/explainable-fraud-detection}
 }
