@@ -14,7 +14,7 @@ thresholding:
 
 evaluation:
   precision_at_k: [100, 500, 1000]
-  bootstrap_resamples: 1000
+  bootstrap_resamples: 100
   cv_splits: 5
   cv_repeats: 3
 
