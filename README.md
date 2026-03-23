@@ -28,7 +28,7 @@ This repository accompanies a PeerJ Computer Science manuscript draft ("Explaina
 - **Operational constraints**: Fixed FPR budget (≤1%) reflecting real-world alert volume limits
 - **False positive costs**: Review costs and customer friction demand high precision
 - **Interpretability**: SHAP-based explanations for regulatory compliance and stakeholder trust
-- **Statistical reliability**: 1,000 stratified bootstrap resamples ensuring 95% confidence intervals
+- **Statistical reliability**: 100 end-to-end stratified pipeline bootstrap resamples ensuring 95% confidence intervals
 
 ---
 
@@ -87,7 +87,8 @@ explainable-fraud-detection/
 - `build_models()`: Instantiation of four baseline classifiers with class-imbalance handling
 - `time_based_split()` / `stratified_split()`: Train/validation/test data splitting strategies
 - `choose_threshold_validation()`: Threshold selection under fixed FPR budget
-- `bootstrap_test_metrics()`: Stratified bootstrap resampling for confidence intervals
+- `full_pipeline_bootstrap()`: Full end-to-end stratified bootstrap resampling (train/val/test) for confidence intervals, parallelized via `joblib` with OOM-safe C++ thread bounding (`threadpool_limits`).
+- **Metric Evaluation Rigor**: Strict separation of continuous prediction scoring (for ROC-AUC/PR-AUC) and integer threshold arrays (for Precision/Recall/F1) to prevent metric distortion.
 - `run_repeated_cv()`: Repeated stratified K-fold cross-validation for robustness
 - `compute_sample_weight_for_imbalance()`: Sample weighting strategy for extreme imbalance
 - SHAP explainability pipeline: Global and local explanation generation and visualization
@@ -159,7 +160,7 @@ python main.py
 6. Selects decision thresholds using fixed FPR budget constraints
 7. Evaluates models on the test set with standard metrics (PR-AUC, ROC-AUC, precision, recall)
 8. Computes precision@k metrics for top-k high-risk predictions
-9. Performs stratified bootstrap resampling (1000 resamples) to estimate confidence intervals
+9. Performs an end-to-end stratified pipeline bootstrap (100 resamples) across train/val/test splits to accurately estimate confidence intervals
 10. Runs repeated stratified K-fold cross-validation (5 folds × 3 repeats) for robustness
 11. Generates SHAP-based explanations (global and local) for model decisions
 12. Saves all results to `results/` directory (JSON metrics + visualizations per model)
@@ -185,7 +186,7 @@ thresholding:
 
 evaluation:
   precision_at_k: [100, 500, 1000]   # Evaluate precision at top-100, 500, 1000 predictions
-  bootstrap_resamples: 1000          # Number of stratified bootstrap resamples for CIs
+  bootstrap_resamples: 100          # Number of stratified bootstrap resamples for CIs
   cv_splits: 5                       # K-fold cross-validation (K=5)
   cv_repeats: 3                      # Number of CV repeats (total: 15 runs)
 
@@ -247,6 +248,8 @@ All required packages are listed in `requirements.txt`. Key dependencies include
 | PyYAML | 6.0.3 | Configuration file parsing |
 | kagglehub | 0.4.2 | Kaggle dataset download |
 | tqdm | 4.67.3 | Progress bars |
+| threadpoolctl | 3.5.0 | Thread-bounding to prevent OOM memory crashes |
+| joblib | 1.4.2 | Parallel processing for bootstrap iteration |
 
 ### Installation
 
@@ -259,7 +262,7 @@ pip install -r requirements.txt
 Or install individually:
 
 ```bash
-pip install pandas numpy scikit-learn xgboost shap matplotlib PyYAML kagglehub tqdm
+pip install pandas numpy scikit-learn xgboost shap matplotlib PyYAML kagglehub tqdm threadpoolctl joblib
 ```
 
 ---

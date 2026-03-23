@@ -29,6 +29,9 @@ from tqdm import tqdm
 from sklearn.model_selection import train_test_split, RepeatedStratifiedKFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
+from sklearn.base import clone
+from sklearn.utils import resample
+from joblib import Parallel, delayed
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier, HistGradientBoostingClassifier
 from sklearn.metrics import (
@@ -247,7 +250,7 @@ def build_models(y_train: np.ndarray) -> Dict[str, object]:
                 max_iter=2000,
                 class_weight="balanced",
                 solver="lbfgs",
-                n_jobs=None
+                n_jobs=1
             )),
         ]
     )
@@ -257,7 +260,7 @@ def build_models(y_train: np.ndarray) -> Dict[str, object]:
         n_estimators=300,
         random_state=RANDOM_SEED,
         class_weight="balanced_subsample",
-        n_jobs=-1,
+        n_jobs=1,
         max_depth=None,
         min_samples_leaf=1,
     )
@@ -285,9 +288,10 @@ def build_models(y_train: np.ndarray) -> Dict[str, object]:
             colsample_bytree=0.8,
             reg_lambda=1.0,
             random_state=RANDOM_SEED,
-            n_jobs=-1,
+            n_jobs=1,
             eval_metric="logloss",
             scale_pos_weight=scale_pos_weight,
+            tree_method="hist"
         )
     except Exception:
         pass
@@ -396,49 +400,75 @@ def choose_threshold_validation(
 
 
 # -----------------------------
-# Statistical robustness: bootstrap CI on test set + repeated CV on training
+# Statistical robustness: end-to-end bootstrap + repeated CV on training
 # -----------------------------
-def bootstrap_test_metrics(
-    y_test: np.ndarray,
-    y_scores: np.ndarray,
-    threshold: float,
-    n_boot: int = 1000,
-    seed: int = RANDOM_SEED,
+def _bootstrap_single_iter(
+    model_name, base_model, X_train, y_train, X_val, y_val, X_test, y_test, target_fpr, beta, seed
+):
+    from threadpoolctl import threadpool_limits
+    with threadpool_limits(limits=1):
+        # Resample training, val, and test data (stratified) independently
+        X_tr_boot, y_tr_boot = resample(X_train, y_train, stratify=y_train, random_state=seed)
+        X_va_boot, y_va_boot = resample(X_val, y_val, stratify=y_val, random_state=seed + 1)
+        X_te_boot, y_te_boot = resample(X_test, y_test, stratify=y_test, random_state=seed + 2)
+
+    # Clone to start fresh
+    model = clone(base_model)
+
+    # Sample weight for HGB extreme imbalance
+    sample_weight = None
+    if model_name == "hgb":
+        sample_weight = compute_sample_weight_for_imbalance(y_tr_boot)
+
+    # Fit
+    fit_model(model, X_tr_boot, y_tr_boot, sample_weight=sample_weight)
+
+    # Validation Threshold
+    p_val = predict_proba(model, X_va_boot)
+    thr, _ = choose_threshold_validation(y_va_boot, p_val, mode="fpr_budget", target_fpr=target_fpr, beta=beta)
+
+    # Test evaluation
+    p_test = predict_proba(model, X_te_boot)
+    
+    pr = pr_auc(y_te_boot, p_test)
+    roc = roc_auc(y_te_boot, p_test)
+
+    cm = confusion_at_threshold(y_te_boot, p_test, thr)
+    tn, fp, fn, tp = cm["tn"], cm["fp"], cm["fn"], cm["tp"]
+    prec = tp / max(tp + fp, 1)
+    rec = tp / max(tp + fn, 1)
+
+    return {"pr_auc": pr, "roc_auc": roc, "precision": float(prec), "recall": float(rec)}
+
+def full_pipeline_bootstrap(
+    model_name: str,
+    base_model,
+    X_train, y_train,
+    X_val, y_val,
+    X_test, y_test,
+    target_fpr: float = 0.01,
+    beta: float = 2.0,
+    n_iterations: int = 100,
+    n_jobs: int = 2,
+    seed: int = RANDOM_SEED
 ) -> Dict[str, Dict[str, float]]:
     """
-    Stratified bootstrap (by class) of (y_test, y_scores) pairs.
-    Returns dict of metrics -> {mean, std, ci_lower (2.5%), ci_upper (97.5%)}.
-    Does NOT retrain models; resamples scores and labels with replacement
-    preserving class counts in each bootstrap sample.
+    End-to-End Pipeline Bootstrapping to capture variance from training, model fitting, 
+    and validation threshold selection.
     """
-    rng = np.random.RandomState(seed)
+    print(f"  Starting end-to-end bootstrap for {model_name} ({n_iterations} iters, n_jobs={n_jobs})...", flush=True)
 
-    idx_pos = np.where(y_test == 1)[0]
-    idx_neg = np.where(y_test == 0)[0]
-    n_pos = len(idx_pos)
-    n_neg = len(idx_neg)
+    results = Parallel(n_jobs=n_jobs, verbose=10)(
+        delayed(_bootstrap_single_iter)(
+            model_name, base_model, X_train, y_train, X_val, y_val, X_test, y_test, target_fpr, beta, seed + i * 3
+        ) for i in range(n_iterations)
+    )
 
     metrics = {"pr_auc": [], "roc_auc": [], "precision": [], "recall": []}
-
-    for i in tqdm(range(int(n_boot)), desc="Bootstrap resamples", unit="sample", leave=False):
-        samp_pos = rng.choice(idx_pos, size=n_pos, replace=True)
-        samp_neg = rng.choice(idx_neg, size=n_neg, replace=True)
-        samp_idx = np.concatenate([samp_pos, samp_neg])
-
-        y_s = y_test[samp_idx]
-        s_scores = y_scores[samp_idx]
-
-        metrics["pr_auc"].append(pr_auc(y_s, s_scores))
-        metrics["roc_auc"].append(roc_auc(y_s, s_scores))
-
-        cm = confusion_at_threshold(y_s, s_scores, threshold)
-        tn, fp, fn, tp = cm["tn"], cm["fp"], cm["fn"], cm["tp"]
-        prec = tp / max(tp + fp, 1)
-        rec = tp / max(tp + fn, 1)
-
-        metrics["precision"].append(float(prec))
-        metrics["recall"].append(float(rec))
-
+    for res in results:
+        for k, v in res.items():
+            metrics[k].append(v)
+    
     out: Dict[str, Dict[str, float]] = {}
     for k, v in metrics.items():
         arr = np.array(v)
@@ -794,6 +824,8 @@ def main(
     target_fpr: float = 0.01,
     beta: float = 2.0,
     do_shap: bool = True,
+    n_iterations: int = 100,
+    n_jobs: int = 2,
 ):
     # Ensure CSV file exists; download if missing
     csv_path = ensure_creditcard_csv(csv_path)
@@ -844,16 +876,26 @@ def main(
 
         # -----------------------------
         # Statistical robustness analyses
-        # 1) Stratified bootstrap CIs on the held-out test set 
+        # 1) End-to-end pipeline bootstrap
         # 2) Repeated stratified CV on the TRAINING portion only
         # -----------------------------
         try:
-            print(f"  Computing bootstrap CIs (1000 resamples) ...", flush=True)
-            bs = bootstrap_test_metrics(data.y_test, p_test, thr, n_boot=1000, seed=RANDOM_SEED)
+            bs = full_pipeline_bootstrap(
+                model_name=name,
+                base_model=model,
+                X_train=X_train, y_train=data.y_train,
+                X_val=X_val, y_val=data.y_val,
+                X_test=X_test, y_test=data.y_test,
+                target_fpr=target_fpr,
+                beta=beta,
+                n_iterations=n_iterations,
+                n_jobs=n_jobs,
+                seed=RANDOM_SEED
+            )
             results[name]["test_bootstrap_ci"] = bs
             print(f"  Bootstrap CIs complete", flush=True)
         except Exception as e:
-            print(f"[WARN] bootstrap_test_metrics failed for {name}: {e}")
+            print(f"[WARN] full_pipeline_bootstrap failed for {name}: {e}")
 
         try:
             print(f"  Running repeated stratified CV (5 splits, 3 repeats, 15 folds total) ...", flush=True)
@@ -927,4 +969,6 @@ if __name__ == "__main__":
         target_fpr=0.01,
         beta=2.0,
         do_shap=True,
+        n_iterations=100,
+        n_jobs=2,
     )
