@@ -87,7 +87,8 @@ explainable-fraud-detection/
 - `build_models()`: Instantiation of four baseline classifiers with class-imbalance handling
 - `time_based_split()` / `stratified_split()`: Train/validation/test data splitting strategies
 - `choose_threshold_validation()`: Threshold selection under fixed FPR budget
-- `full_pipeline_bootstrap()`: Full end-to-end stratified bootstrap resampling (train/val/test) for confidence intervals
+- `full_pipeline_bootstrap()`: Full end-to-end stratified bootstrap resampling (train/val/test) for confidence intervals, parallelized via `joblib` with OOM-safe C++ thread bounding (`threadpool_limits`).
+- **Metric Evaluation Rigor**: Strict separation of continuous prediction scoring (for ROC-AUC/PR-AUC) and integer threshold arrays (for Precision/Recall/F1) to prevent metric distortion.
 - `run_repeated_cv()`: Repeated stratified K-fold cross-validation for robustness
 - `compute_sample_weight_for_imbalance()`: Sample weighting strategy for extreme imbalance
 - SHAP explainability pipeline: Global and local explanation generation and visualization
@@ -247,6 +248,8 @@ All required packages are listed in `requirements.txt`. Key dependencies include
 | PyYAML | 6.0.3 | Configuration file parsing |
 | kagglehub | 0.4.2 | Kaggle dataset download |
 | tqdm | 4.67.3 | Progress bars |
+| threadpoolctl | 3.5.0 | Thread-bounding to prevent OOM memory crashes |
+| joblib | 1.4.2 | Parallel processing for bootstrap iteration |
 
 ### Installation
 
@@ -259,7 +262,7 @@ pip install -r requirements.txt
 Or install individually:
 
 ```bash
-pip install pandas numpy scikit-learn xgboost shap matplotlib PyYAML kagglehub tqdm
+pip install pandas numpy scikit-learn xgboost shap matplotlib PyYAML kagglehub tqdm threadpoolctl joblib
 ```
 
 ---
